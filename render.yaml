@@ -2,6 +2,7 @@ services:
   - type: web
     name: pulsepoll-api
     runtime: go
+    plan: free
     rootDir: backend
     buildCommand: go build -o app .
     startCommand: ./app
