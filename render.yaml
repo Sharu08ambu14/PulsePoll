@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: pulsepoll-api
+    runtime: go
+    rootDir: backend
+    buildCommand: go build -o app .
+    startCommand: ./app
+    healthCheckPath: /health
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGO_URI
+        sync: false
+      - key: MONGO_DATABASE
+        value: pulsepoll
+      - key: REDIS_URL
+        sync: false
+      - key: FRONTEND_ORIGIN
+        fromService:
+          type: web
+          name: pulsepoll-frontend
+          envVarKey: RENDER_EXTERNAL_URL
+
+  - type: web
+    name: pulsepoll-frontend
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: pulsepoll-api
+          envVarKey: RENDER_EXTERNAL_URL
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
