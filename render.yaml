@@ -15,7 +15,10 @@ services:
       - key: MONGO_DATABASE
         value: pulsepoll
       - key: REDIS_URL
-        sync: false
+        fromService:
+          type: keyvalue
+          name: pulsepoll-redis
+          property: connectionString
       - key: FRONTEND_ORIGIN
         fromService:
           type: web
@@ -38,3 +41,10 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+
+  - type: keyvalue
+    name: pulsepoll-redis
+    plan: free
+    ipAllowList: []
+    maxmemoryPolicy: allkeys-lru
+    persistenceMode: off
