@@ -1,8 +1,6 @@
 const configuredApiUrl = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
 const isLocalDevelopment = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-const defaultApiUrl = isLocalDevelopment
-  ? 'http://localhost:8080/api'
-  : 'https://pulsepoll-api-lhvw.onrender.com/api';
+const defaultApiUrl = isLocalDevelopment ? '/api' : 'https://pulsepoll-api-lhvw.onrender.com/api';
 
 export const API_BASE = configuredApiUrl
   ? (configuredApiUrl.endsWith('/api') ? configuredApiUrl : `${configuredApiUrl}/api`)
@@ -17,7 +15,10 @@ async function request(path, options = {}) {
       headers,
     });
   } catch {
-    throw new Error('Cannot reach PulsePoll right now. The server may be waking up; wait a minute and try again.');
+    const isLocalApi = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/)/.test(API_BASE);
+    throw new Error(isLocalApi
+      ? 'The local backend is not running at localhost:8080. Start MongoDB, Redis or Memurai, then run the backend in a second terminal.'
+      : 'Cannot reach PulsePoll right now. The hosted server may be waking up; wait a minute and try again.');
   }
 
   const text = await response.text();

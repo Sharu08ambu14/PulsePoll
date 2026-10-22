@@ -44,22 +44,13 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 Use `redis://` for a local Redis-compatible service. Use `rediss://` for Redis Cloud's TLS connection.
 
-For a local frontend, the default API URL already works. For deployment, copy `frontend/.env.example` to `frontend/.env` and set `VITE_API_URL` to the deployed backend API URL.
+The frontend uses the hosted PulsePoll API by default, including when opened from a local Vite preview. To develop against a local backend instead, set `VITE_API_URL=http://localhost:8080/api` in `frontend/.env`; that backend must have reachable MongoDB and Redis services. For another deployment, set `VITE_API_URL` to that backend's API URL.
 
 ## Run locally
 
-Install Node.js and Go 1.25 or newer, and have reachable MongoDB and Redis services before starting the backend. If Go was just installed or added to PATH, restart VS Code/PowerShell first.
+Install Node.js. You can run the frontend against the hosted API without installing Go, MongoDB, or Redis. To run the backend locally as well, install Go 1.25 or newer and make sure MongoDB and Redis are reachable using `backend\.env`.
 
-Open two PowerShell terminals from the project root.
-
-Backend:
-
-```powershell
-cd backend
-go run .
-```
-
-Frontend:
+To start the frontend, open PowerShell from the project root:
 
 ```powershell
 cd frontend
@@ -67,9 +58,9 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. The frontend defaults to `http://localhost:8080/api`; set `VITE_API_URL` in `frontend/.env` if the API uses another URL.
+Open the localhost URL printed by Vite (commonly `http://localhost:5173`). The local preview uses the hosted API, so your account and polls are saved online. To run the backend locally, set `VITE_API_URL` in `frontend/.env`, start MongoDB and Redis, then run `cd backend; go run .` in another terminal.
 
-Polls created while using `localhost` are local to that machine and cannot be opened by phones. To share a poll across devices, create it on the hosted site at `https://pulsepoll-frontend-rg7w.onrender.com`. Open that same hosted poll link on both the laptop and phone; votes then sync through the shared backend. The hosted poll page has a **Copy poll link** button and a separate **More options** share action.
+The local preview's address itself cannot be opened by a phone. Its poll page provides the corresponding hosted link; use that link on both laptop and phone to see the same poll and live results. The hosted poll page has a **Copy poll link** button and a separate **More options** share action.
 
 ## API overview
 

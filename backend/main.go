@@ -147,6 +147,9 @@ func corsMiddleware() gin.HandlerFunc {
 				break
 			}
 		}
+		if strings.HasPrefix(origin, "http://localhost:") || strings.HasPrefix(origin, "http://127.0.0.1:") {
+			allowed = true
+		}
 		if allowed {
 			c.Header("Access-Control-Allow-Origin", origin)
 			c.Header("Vary", "Origin")

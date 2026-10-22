@@ -440,7 +440,9 @@ function PollPage() {
   const totalVotes = poll.options.reduce((sum, option) => sum + option.votes, 0);
   const roomPulse = getRoomPulse(poll.options, totalVotes);
   const isLocalPreview = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+  const usesHostedApi = API_BASE.startsWith('/') || !['localhost', '127.0.0.1', '::1'].includes(new URL(API_BASE).hostname);
   const pollUrl = window.location.href;
+  const hostedPollUrl = `${PUBLIC_APP_URL}/poll/${id}`;
 
   async function copyPollLink() {
     try {
@@ -478,9 +480,9 @@ function PollPage() {
         </div>
         {isLocalPreview ? (
           <aside className="local-share-notice">
-            <strong>This poll is only on this computer.</strong>
-            <p>Phone and laptop polls update together when everyone uses the hosted site. Create a new poll there to get a link that works across devices.</p>
-            <a className="share-btn hosted-link" href={PUBLIC_APP_URL} target="_blank" rel="noreferrer">Open hosted PulsePoll</a>
+            <strong>{usesHostedApi ? 'Open the hosted link to share this poll.' : 'This poll is only on this computer.'}</strong>
+            <p>{usesHostedApi ? 'Your poll is saved online. This localhost preview address works only on this computer; the hosted link opens the same poll for anyone.' : 'Phone and laptop polls update together when everyone uses the hosted site. Create a new poll there to get a link that works across devices.'}</p>
+            <a className="share-btn hosted-link" href={usesHostedApi ? hostedPollUrl : PUBLIC_APP_URL} target="_blank" rel="noreferrer">{usesHostedApi ? 'Open shareable poll link' : 'Open hosted PulsePoll'}</a>
           </aside>
         ) : (
           <div className="share-panel">
