@@ -37,6 +37,8 @@ services:
           type: web
           name: pulsepoll-api
           envVarKey: RENDER_EXTERNAL_URL
+      - key: VITE_PUBLIC_APP_URL
+        value: https://pulsepoll-frontend-rg7w.onrender.com
     routes:
       - type: rewrite
         source: /*

@@ -8,7 +8,8 @@ PulsePoll is a live polling app built with React, Go/Gin, MongoDB, and Redis. Us
 - Go/Gin validates requests, authenticates poll creators with JWT, and owns all database access.
 - MongoDB persists users, polls, and individual vote records. A unique `(poll_id, voter_key)` index prevents repeat votes from the same browser key.
 - Redis stores per-option vote counters and publishes each accepted vote. SSE handlers subscribe to poll-specific Redis channels so connected viewers receive updates immediately.
-- On backend startup, vote totals are rebuilt from MongoDB's durable vote records into Redis before the API begins serving requests.
+- If a poll's Redis counters are missing, the backend rebuilds that poll's totals from MongoDB when the poll is first opened. This avoids scanning every poll during each backend startup.
+- Poll pages show a live **Room Pulse** insight: a warming-up state, a clear signal, an emerging front-runner, or a split room.
 
 Redis and MongoDB are required for the backend to start; it does not silently fall back to memory.
 
@@ -65,6 +66,8 @@ npm run dev
 ```
 
 Open `http://localhost:5173`. The frontend defaults to `http://localhost:8080/api`; set `VITE_API_URL` in `frontend/.env` if the API uses another URL.
+
+Polls created while using `localhost` are local to that machine and cannot be opened by phones. To share a poll across devices, create it on the hosted site at `https://pulsepoll-frontend-rg7w.onrender.com`. Open that same hosted poll link on both the laptop and phone; votes then sync through the shared backend. The hosted poll page has a **Copy poll link** button and a separate **More options** share action.
 
 ## API overview
 

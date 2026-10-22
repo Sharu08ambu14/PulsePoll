@@ -7,6 +7,7 @@ const TOKEN_KEY = 'pulsepoll-token';
 const USER_KEY = 'pulsepoll-user';
 const VOTER_KEY = 'pulsepoll-voter-key';
 const VOTED_POLLS_KEY = 'pulsepoll-voted-polls';
+const PUBLIC_APP_URL = import.meta.env.VITE_PUBLIC_APP_URL || 'https://pulsepoll-frontend-rg7w.onrender.com';
 
 function getVoterKey() {
   let voterKey = localStorage.getItem(VOTER_KEY);
@@ -31,6 +32,25 @@ function hasVoted(pollID) {
 
 function rememberVote(pollID) {
   localStorage.setItem(VOTED_POLLS_KEY, JSON.stringify({ ...getVotedPolls(), [pollID]: true }));
+}
+
+function getRoomPulse(options, totalVotes) {
+  if (totalVotes === 0) {
+    return { label: 'The room is warming up', detail: 'The first vote will reveal where the room is leaning.' };
+  }
+
+  const [leader, runnerUp] = [...options].sort((a, b) => b.votes - a.votes);
+  const share = leader.votes / totalVotes;
+  const lead = leader.votes - (runnerUp?.votes || 0);
+  const percent = Math.round(share * 100);
+
+  if (share >= 0.67) {
+    return { label: 'Clear signal', detail: `${leader.text} leads with ${percent}% of the room.` };
+  }
+  if (share >= 0.5) {
+    return { label: 'A front-runner is emerging', detail: `${leader.text} is ahead by ${lead} ${lead === 1 ? 'vote' : 'votes'}.` };
+  }
+  return { label: 'The room is split', detail: `No choice has more than half of the ${totalVotes} votes yet.` };
 }
 
 function App() {
@@ -295,6 +315,7 @@ function PollPage() {
   const [voted, setVoted] = useState(() => hasVoted(id));
   const [streamStatus, setStreamStatus] = useState('connecting');
   const [copied, setCopied] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState('');
 
   useEffect(() => {
     async function loadPoll() {
@@ -353,18 +374,33 @@ function PollPage() {
   if (!poll) return <main className="page"><div className="panel"><p>Loading poll...</p></div></main>;
 
   const totalVotes = poll.options.reduce((sum, option) => sum + option.votes, 0);
+  const roomPulse = getRoomPulse(poll.options, totalVotes);
+  const isLocalPreview = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+  const pollUrl = window.location.href;
 
-  async function sharePoll() {
-    const url = window.location.href;
+  async function copyPollLink() {
     try {
-      if (navigator.share) await navigator.share({ title: poll.question, url });
-      else {
-        await navigator.clipboard.writeText(url);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 2000);
-      }
+      await navigator.clipboard.writeText(pollUrl);
+      setCopied(true);
+      setShareFeedback('Link copied. Paste it into a message to invite your audience.');
+      window.setTimeout(() => setCopied(false), 2500);
+    } catch {
+      const field = document.getElementById('share-poll-url');
+      field?.focus();
+      field?.select();
+      setShareFeedback('The link is selected. Copy it with Ctrl+C.');
+    }
+  }
+
+  async function shareWithApps() {
+    if (!navigator.share) {
+      await copyPollLink();
+      return;
+    }
+    try {
+      await navigator.share({ title: poll.question, url: pollUrl });
     } catch (err) {
-      if (err.name !== 'AbortError') setError('Could not share this poll. Copy the URL from your browser instead.');
+      if (err.name !== 'AbortError') setShareFeedback('Sharing was unavailable. Use Copy poll link instead.');
     }
   }
 
@@ -375,8 +411,23 @@ function PollPage() {
         <h2>{poll.question}</h2>
         <div className="poll-meta">
           <span className={`live-indicator ${streamStatus}`}>{streamStatus === 'live' ? 'Live updates on' : 'Connecting to live updates'}</span>
-          <button type="button" className="share-btn" onClick={sharePoll}>{copied ? 'Link copied' : 'Share poll'}</button>
         </div>
+        {isLocalPreview ? (
+          <aside className="local-share-notice">
+            <strong>This poll is only on this computer.</strong>
+            <p>Phone and laptop polls update together when everyone uses the hosted site. Create a new poll there to get a link that works across devices.</p>
+            <a className="share-btn hosted-link" href={PUBLIC_APP_URL} target="_blank" rel="noreferrer">Open hosted PulsePoll</a>
+          </aside>
+        ) : (
+          <div className="share-panel">
+            <div className="share-link-row">
+              <input id="share-poll-url" aria-label="Shareable poll link" readOnly value={pollUrl} onFocus={(event) => event.target.select()} />
+              <button type="button" className="share-btn" onClick={copyPollLink}>{copied ? 'Copied!' : 'Copy poll link'}</button>
+              <button type="button" className="share-btn share-secondary" onClick={shareWithApps}>More options</button>
+            </div>
+            {shareFeedback && <p className="share-feedback" role="status">{shareFeedback}</p>}
+          </div>
+        )}
         <form onSubmit={handleVote}>
           {poll.options.map((option) => (
             <label key={option.id} className="vote-option">
@@ -396,6 +447,11 @@ function PollPage() {
 
       <section className="panel">
         <div className="results-title"><h2>Results</h2><span>{totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}</span></div>
+        <div className="room-pulse" role="status" aria-live="polite">
+          <span className="room-pulse-kicker">PULSEPOLL INSIGHT</span>
+          <strong>{roomPulse.label}</strong>
+          <p>{roomPulse.detail}</p>
+        </div>
         <div className="result-list">
           {poll.options.map((option) => {
             const percentage = totalVotes === 0 ? 0 : Math.round((option.votes / totalVotes) * 100);

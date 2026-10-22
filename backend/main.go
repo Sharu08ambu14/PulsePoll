@@ -58,6 +58,7 @@ type authUser struct {
 }
 
 func main() {
+	startupStarted := time.Now()
 	if err := godotenv.Load(); err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Fatal("load .env: ", err)
 	}
@@ -73,10 +74,12 @@ func main() {
 	if database == "" {
 		database = "pulsepoll"
 	}
+	log.Print("Connecting to MongoDB...")
 	mongoStore, err := store.ConnectMongo(ctx, mongoURI, database)
 	if err != nil {
 		log.Fatal("connect to MongoDB: ", err)
 	}
+	log.Printf("MongoDB connected after %s", time.Since(startupStarted).Round(time.Millisecond))
 	defer mongoStore.Close(context.Background())
 
 	redisURL := strings.TrimSpace(os.Getenv("REDIS_URL"))
@@ -87,12 +90,14 @@ func main() {
 	if err != nil {
 		log.Fatal("parse REDIS_URL: ", err)
 	}
+	log.Print("Connecting to Redis...")
 	redisClient := redis.NewClient(redisOptions)
 	if err := redisClient.Ping(ctx).Err(); err != nil {
 		_ = redisClient.Close()
 		log.Fatal("connect to Redis: ", err)
 	}
 	defer redisClient.Close()
+	log.Printf("MongoDB and Redis are ready after %s", time.Since(startupStarted).Round(time.Millisecond))
 
 	app := &App{
 		store:     mongoStore,
@@ -102,10 +107,6 @@ func main() {
 	if len(app.jwtSecret) < 32 {
 		log.Fatal("JWT_SECRET must contain at least 32 characters")
 	}
-	if err := app.rebuildRedisCounts(ctx); err != nil {
-		log.Fatal("initialize Redis poll counts: ", err)
-	}
-
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery(), corsMiddleware())
@@ -124,6 +125,7 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
+	log.Printf("Starting PulsePoll API on port %s", port)
 	if err := r.Run("0.0.0.0:" + port); err != nil {
 		log.Fatal(err)
 	}
@@ -530,19 +532,6 @@ func (a *App) initializeRedisCounts(ctx context.Context, poll store.Poll) error 
 		return nil
 	})
 	return err
-}
-
-func (a *App) rebuildRedisCounts(ctx context.Context) error {
-	polls, err := a.store.ListPolls(ctx)
-	if err != nil {
-		return err
-	}
-	for _, poll := range polls {
-		if err := a.initializeRedisCounts(ctx, poll); err != nil {
-			return fmt.Errorf("poll %s: %w", poll.ID, err)
-		}
-	}
-	return nil
 }
 
 func (a *App) applyRedisCounts(ctx context.Context, poll *store.Poll) error {
