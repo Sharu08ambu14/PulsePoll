@@ -149,6 +149,20 @@ func (s *MongoStore) ListPolls(ctx context.Context) ([]Poll, error) {
 	return polls, nil
 }
 
+func (s *MongoStore) ListPollsByOwner(ctx context.Context, ownerID string) ([]Poll, error) {
+	cursor, err := s.polls.Find(ctx, bson.M{"created_by": ownerID}, options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	polls := make([]Poll, 0)
+	if err := cursor.All(ctx, &polls); err != nil {
+		return nil, err
+	}
+	return polls, nil
+}
+
 func (s *MongoStore) GetPoll(ctx context.Context, id string) (Poll, error) {
 	var poll Poll
 	err := s.polls.FindOne(ctx, bson.M{"_id": id}).Decode(&poll)

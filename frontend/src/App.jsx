@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BrowserRouter, Link, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { API_BASE, createPoll, getPoll, listPolls, login, signup, submitVote } from './api';
+import { API_BASE, createPoll, getPoll, listMyPolls, listPolls, login, signup, submitVote } from './api';
 import './App.css';
 
 const TOKEN_KEY = 'pulsepoll-token';
@@ -86,16 +86,19 @@ function App() {
                 <Link to="/signup">Sign up</Link>
               </>
             ) : (
-              <button
-                type="button"
-                className="ghost-btn"
-                onClick={() => {
-                  setToken('');
-                  setUser(null);
-                }}
-              >
-                Logout
-              </button>
+              <>
+                <Link to="/my-polls">My Polls</Link>
+                <button
+                  type="button"
+                  className="ghost-btn"
+                  onClick={() => {
+                    setToken('');
+                    setUser(null);
+                  }}
+                >
+                  Logout
+                </button>
+              </>
             )}
           </nav>
         </header>
@@ -105,10 +108,63 @@ function App() {
           <Route path="/login" element={<LoginPage auth={auth} />} />
           <Route path="/signup" element={<SignupPage auth={auth} />} />
           <Route path="/create" element={<CreatePollPage auth={auth} />} />
+          <Route path="/my-polls" element={<MyPollsPage auth={auth} />} />
           <Route path="/poll/:id" element={<PollRoute />} />
         </Routes>
       </div>
     </BrowserRouter>
+  );
+}
+
+function MyPollsPage({ auth }) {
+  const [polls, setPolls] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!auth.token) {
+      navigate('/login');
+      return;
+    }
+
+    async function loadMyPolls() {
+      try {
+        setPolls(await listMyPolls(auth.token));
+      } catch (err) {
+        if (err.status === 401) {
+          auth.setToken('');
+          auth.setUser(null);
+          navigate('/login', { state: { message: 'Your saved sign-in is no longer valid. Log in to view your polls.' } });
+        } else {
+          setError(err.message);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadMyPolls();
+  }, [auth.token, auth.setToken, auth.setUser, navigate]);
+
+  return (
+    <main className="page">
+      <section className="panel">
+        <div className="results-title"><h2>My Polls</h2><Link to="/create" className="secondary-btn">Create another</Link></div>
+        <p>Your saved polls stay here. Open any poll to see its current results or share it again.</p>
+        {loading ? <p>Loading your polls...</p> : error ? <p className="error">{error}</p> : null}
+        {!loading && !error && polls.length === 0 ? <p>You haven’t created a poll yet.</p> : null}
+        <div className="poll-grid">
+          {polls.map((poll) => (
+            <Link key={poll.id} className="poll-card" to={`/poll/${poll.id}`}>
+              <h3>{poll.question}</h3>
+              <p>{poll.options.length} options · {poll.options.reduce((sum, option) => sum + option.votes, 0)} votes</p>
+              <span>View live results →</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+    </main>
   );
 }
 

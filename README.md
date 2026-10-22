@@ -10,6 +10,8 @@ PulsePoll is a live polling app built with React, Go/Gin, MongoDB, and Redis. Us
 - Redis stores per-option vote counters and publishes each accepted vote. SSE handlers subscribe to poll-specific Redis channels so connected viewers receive updates immediately.
 - If a poll's Redis counters are missing, the backend rebuilds that poll's totals from MongoDB when the poll is first opened. This avoids scanning every poll during each backend startup.
 - Poll pages show a live **Room Pulse** insight: a warming-up state, a clear signal, an emerging front-runner, or a split room.
+- Signed-in creators can open **My Polls** to revisit their saved polls and current results; poll and vote records are stored in MongoDB.
+- Login sessions last 30 days. If a saved token is no longer accepted, the app clears it and guides the user back to login.
 
 Redis and MongoDB are required for the backend to start; it does not silently fall back to memory.
 

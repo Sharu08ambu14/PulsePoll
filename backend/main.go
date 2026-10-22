@@ -116,6 +116,7 @@ func main() {
 	api.POST("/auth/signup", app.handleSignup)
 	api.POST("/auth/login", app.handleLogin)
 	api.GET("/polls", app.handleListPolls)
+	api.GET("/polls/mine", app.authRequired(), app.handleListMyPolls)
 	api.POST("/polls", app.authRequired(), app.handleCreatePoll)
 	api.GET("/polls/:id", app.handleGetPoll)
 	api.POST("/polls/:id/vote", app.handleVote)
@@ -132,15 +133,22 @@ func main() {
 }
 
 func corsMiddleware() gin.HandlerFunc {
-	allowedOrigin := os.Getenv("FRONTEND_ORIGIN")
-	if allowedOrigin == "" {
-		allowedOrigin = "http://localhost:5173"
+	allowedOrigins := strings.Split(os.Getenv("FRONTEND_ORIGIN"), ",")
+	if len(allowedOrigins) == 1 && strings.TrimSpace(allowedOrigins[0]) == "" {
+		allowedOrigins = []string{"http://localhost:5173"}
 	}
 
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
-		if origin == allowedOrigin {
-			c.Header("Access-Control-Allow-Origin", allowedOrigin)
+		allowed := false
+		for _, allowedOrigin := range allowedOrigins {
+			if strings.TrimRight(strings.TrimSpace(allowedOrigin), "/") == origin {
+				allowed = true
+				break
+			}
+		}
+		if allowed {
+			c.Header("Access-Control-Allow-Origin", origin)
 			c.Header("Vary", "Origin")
 			c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
 			c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -249,6 +257,33 @@ func (a *App) handleListPolls(c *gin.Context) {
 	if err != nil {
 		log.Printf("list polls: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not load polls"})
+		return
+	}
+	for i := range polls {
+		if err := a.applyRedisCounts(c.Request.Context(), &polls[i]); err != nil {
+			log.Printf("load poll counts for %s: %v", polls[i].ID, err)
+			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "could not load live poll counts"})
+			return
+		}
+	}
+	c.JSON(http.StatusOK, polls)
+}
+
+func (a *App) handleListMyPolls(c *gin.Context) {
+	owner, ok := c.Get("user")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	user, ok := owner.(authUser)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "invalid authenticated user"})
+		return
+	}
+	polls, err := a.store.ListPollsByOwner(c.Request.Context(), user.ID)
+	if err != nil {
+		log.Printf("list polls for %s: %v", user.ID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not load your polls"})
 		return
 	}
 	for i := range polls {
@@ -512,7 +547,7 @@ func (a *App) authRequired() gin.HandlerFunc {
 func generateToken(userID string, secret []byte) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": userID,
-		"exp": time.Now().Add(12 * time.Hour).Unix(),
+		"exp": time.Now().Add(30 * 24 * time.Hour).Unix(),
 	})
 	return token.SignedString(secret)
 }
