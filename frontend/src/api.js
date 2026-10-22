@@ -15,7 +15,9 @@ async function request(path, options = {}) {
   const payload = text ? JSON.parse(text) : {};
 
   if (!response.ok) {
-    throw new Error(payload.error || 'Request failed');
+    const error = new Error(payload.error || 'Request failed');
+    error.status = response.status;
+    throw error;
   }
 
   return payload;

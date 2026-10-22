@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BrowserRouter, Link, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import { BrowserRouter, Link, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { API_BASE, createPoll, getPoll, listPolls, login, signup, submitVote } from './api';
 import './App.css';
 
@@ -171,6 +171,7 @@ function HomePage() {
 }
 
 function LoginPage({ auth }) {
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -198,6 +199,7 @@ function LoginPage({ auth }) {
     <main className="page centered">
       <form className="form-panel" onSubmit={handleSubmit}>
         <h2>Login</h2>
+        {location.state?.message ? <p role="status">{location.state.message}</p> : null}
         <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="Email" required />
         <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="Password" required />
         {error ? <p className="error">{error}</p> : null}
@@ -277,7 +279,13 @@ function CreatePollPage({ auth }) {
       const result = await createPoll({ question, options }, auth.token);
       navigate(`/poll/${result.id}`);
     } catch (err) {
-      setError(err.message);
+      if (err.status === 401) {
+        auth.setToken('');
+        auth.setUser(null);
+        navigate('/login', { state: { message: 'Your saved sign-in is no longer valid. Log in again, then create your poll.' } });
+      } else {
+        setError(err.message);
+      }
     } finally {
       setLoading(false);
     }
